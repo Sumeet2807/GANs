@@ -4,6 +4,7 @@ import torchvision
 from matplotlib import pyplot as plt
 import torch.nn.functional as F
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Generator(nn.Module):
     def __init__(self, g_input_dim, g_output_dim):
