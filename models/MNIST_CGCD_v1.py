@@ -4,6 +4,7 @@ import torchvision
 from matplotlib import pyplot as plt
 import torch.nn.functional as F
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Generator(nn.Module):
   def __init__(self):
@@ -13,14 +14,14 @@ class Generator(nn.Module):
     self.deconv3 = nn.ConvTranspose2d(in_channels=32, out_channels=32, kernel_size=5,device=device)
     self.deconv4 = nn.ConvTranspose2d(in_channels=32, out_channels=16, kernel_size=7,device=device)
     self.deconv5 = nn.ConvTranspose2d(in_channels=16, out_channels=1, kernel_size=5,device=device)
-    self.activation = torch.nn.ReLU()
+    self.activation =  torch.nn.LeakyReLU(negative_slope=0.01)
 
   def forward(self,x):
     x = self.activation(self.deconv1(x))
     x = self.activation(self.deconv2(x))
     x = self.activation(self.deconv3(x))
     x = self.activation(self.deconv4(x))
-    x = self.deconv5(x)
+    x = torch.tanh(self.deconv5(x))
     return x
 
 
@@ -36,11 +37,10 @@ class Discriminator(nn.Module):
     self.conv3 = nn.Conv2d(in_channels = 32, out_channels = 64, kernel_size = 3,device=device)      
     self.pool = nn.AvgPool2d(kernel_size=2)
     self.flat = torch.nn.Flatten()
-    self.activation = torch.nn.ReLU()
+    self.activation =  torch.nn.LeakyReLU(negative_slope=0.01)
     self.dense1 = nn.Linear(in_features=576, out_features=32,device=device)
     self.dense2 = nn.Linear(in_features=32, out_features=8,device=device)
     self.dense3 = nn.Linear(in_features=8, out_features=1,device=device)
-    self.sig = nn.Sigmoid()
     self.drop = torch.nn.Dropout(p=drop)
 
 
@@ -60,14 +60,12 @@ class Discriminator(nn.Module):
 
 class GAN(nn.Module):
   def __init__(self,drop):
-    mnist_dim = 784
-    z_dim = 100
     super().__init__()
-    self.discriminator = Discriminator(mnist_dim).to(device)
-    self.generator = Generator(g_input_dim = z_dim, g_output_dim = mnist_dim).to(device)
+    self.discriminator = Discriminator(drop).to(device)
+    self.generator = Generator().to(device)
     self.optd = torch.optim.Adam(self.discriminator.parameters(),lr=2e-4)#,betas=(0.5, 0.999))
     self.optg = torch.optim.Adam(self.generator.parameters(),lr=2e-4)#,betas=(0.5, 0.999))    
-    self.loss = torch.nn.BCELoss()
+    self.loss = torch.nn.BCEWithLogitsLoss()
 
   def forward(self,x):
     x = self.generator(x)
@@ -86,7 +84,6 @@ class GAN(nn.Module):
         iteration += 1
         try:
           x_pos = next(dataset)[0].to(device)
-          x_pos = x_pos.view((x_pos.shape[0],784))
         except StopIteration:
           print(num_epochs)        
           print("dis loss")
@@ -95,7 +92,7 @@ class GAN(nn.Module):
           print(loss_g_avg)
 
           
-          img = self.generator(torch.randn(size=(1,100),device=device)).view((28,28))
+          img = self.generator(torch.randn(size=(1,1,4,4),device=device)).view((28,28))
           plt.imshow(img.detach().cpu().numpy(), cmap="gray")
           plt.show()
 
@@ -110,7 +107,7 @@ class GAN(nn.Module):
         y_pos = torch.ones(size = (x_pos.shape[0],1)).to(device)
         y_pred_real = self.discriminator(x_pos)
         loss_d_real = self.loss(y_pred_real,y_pos)
-        noise = torch.randn(size=(batch_size,100),device=device)
+        noise = torch.randn(size=(batch_size,1,4,4),device=device)
         x_neg = self.generator(noise)
         y_neg = torch.zeros(size = (x_neg.shape[0],1)).to(device)
         y_pred_fake = self.discriminator(x_neg)
@@ -122,7 +119,7 @@ class GAN(nn.Module):
 
 
 
-        X = torch.randn(size=(batch_size,100),device=device)
+        X = torch.randn(size=(batch_size,1,4,4),device=device)
         y = torch.ones(size = (X.shape[0],1)).to(device)
         self.optg.zero_grad()
         y_pred = self.forward(X)
