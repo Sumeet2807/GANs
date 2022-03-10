@@ -38,8 +38,8 @@ class Discriminator(nn.Module):
     self.pool = nn.AvgPool2d(kernel_size=2)
     self.flat = torch.nn.Flatten()
     self.activation =  torch.nn.LeakyReLU(negative_slope=0.01)
-    self.dense1 = nn.Linear(in_features=576, out_features=128,device=device)
-    self.dense2 = nn.Linear(in_features=128, out_features=64,device=device)
+    self.dense1 = nn.Linear(in_features=576, out_features=64,device=device)
+    self.dense2 = nn.Linear(in_features=64, out_features=64,device=device)
     self.dense3 = nn.Linear(in_features=64, out_features=1,device=device)
     self.drop = torch.nn.Dropout(p=drop)
 
